@@ -50,7 +50,9 @@ public class Bot extends ListenerAdapter {
         commands.addCommands(Commands.slash("help", "Returns a list of commands"));
         commands.addCommands(Commands.slash("github", "Displays the github link for the bot code"));
         commands.addCommands(Commands.slash("invite", "Shows the invite link to add the bot to your server"));
-        commands.addCommands(Commands.slash("changelog", "Shows the changelog"));
+        commands.addCommands(Commands.slash("assigndaily", "Assigns a daily problem under the Daily Problems category"));
+        commands.addCommands(Commands.slash("undo", "Undos a daily assignment problem"));
+        commands.addCommands(Commands.slash("cleardaily","Clears the daily problems by moving them to Archived Problems category"));
         commands.queue();
     }
 
@@ -64,7 +66,8 @@ public class Bot extends ListenerAdapter {
             case "help" -> help(event);
             case "github" -> github(event);
             case "invite" -> invite(event);
-            case "changelog" -> changelog(event);
+            case "assigndaily" -> assigndaily(event);
+            case "cleardaily" -> cleardaily(event);
             // Command does not exist
             default -> event.reply("I can't handle that command right now :(").setEphemeral(true).queue();
         }
@@ -97,14 +100,24 @@ public class Bot extends ListenerAdapter {
         event.replyEmbeds(embed.build()).queue();
     }
 
-    public void changelog(SlashCommandInteractionEvent event) {
+    public void assigndaily(SlashCommandInteractionEvent event) {
         EmbedBuilder embed = new EmbedBuilder();
-        embed.setTitle("Changelog");
+        embed.setTitle("Invite Link");
         embed.setColor(embedColor);
-        String message = (
-                "WIP"
-            );
-        embed.appendDescription(message);
+        Guild guild = event.getGuild();
+        Category category = event.getGuild().getCategoryById("1067545814710358067");
+        category.createTextChannel("testttt").queue();
+        //embed.appendDescription();
         event.replyEmbeds(embed.build()).queue();
     }
+
+    public void cleardaily(SlashCommandInteractionEvent event) {
+        EmbedBuilder embed = new EmbedBuilder();
+        embed.setTitle("Invite Link");
+        embed.setColor(embedColor);
+
+        //embed.appendDescription();
+        event.replyEmbeds(embed.build()).queue();
+    }
+
 }
