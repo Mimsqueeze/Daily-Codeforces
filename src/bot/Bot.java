@@ -11,17 +11,14 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.requests.restaction.CommandListUpdateAction;
 import net.dv8tion.jda.api.entities.*;
-import net.dv8tion.jda.api.sharding.DefaultShardManagerBuilder;
 
 import javax.security.auth.login.LoginException;
-
-import java.time.LocalDateTime;
 
 import java.awt.*;
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
 import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
@@ -58,6 +55,7 @@ public class Bot extends ListenerAdapter {
         commands.addCommands(Commands.slash("invite", "Shows the invite link to add the bot to your server"));
         commands.addCommands(Commands.slash("assigndaily", "Assigns a daily problem under the Daily Problems category")
                 .addOptions(new OptionData(STRING, "problem", "enter the desired problem number and letter").setRequired(true))
+                .addOptions(new OptionData(INTEGER, "difficulty", "enter the difficulty").setRequired(false).setRequiredRange(800,3500))
         );
         commands.addCommands(Commands.slash("cleardaily", "Clears the daily problems by deleting them"));
         commands.addCommands(Commands.slash("archivedaily","Clears the daily problems by moving them to Archived Problems category"));
@@ -75,8 +73,9 @@ public class Bot extends ListenerAdapter {
             case "github" -> github(event);
             case "invite" -> invite(event);
             case "assigndaily" -> {
-                String problemNumber = event.getOption("problem").getAsString();
-                assigndaily(event, problemNumber);
+                String problem = event.getOption("problem").getAsString();
+                int difficulty = event.getOption("difficulty", -1, OptionMapping::getAsInt);
+                assigndaily(event, problem, difficulty);
             }
             case "archivedaily" -> archivedaily(event);
             case "cleardaily" -> cleardaily(event);
@@ -112,20 +111,59 @@ public class Bot extends ListenerAdapter {
         event.replyEmbeds(embed.build()).queue();
     }
 
-    public void assigndaily(SlashCommandInteractionEvent event, String problemNumber) {
-        EmbedBuilder embed = new EmbedBuilder();
-        embed.setTitle("Invite Link");
-        embed.setColor(embedColor);
+    public void assigndaily(SlashCommandInteractionEvent event, String problem, int difficulty) {
         Guild guild = event.getGuild(); // gets the guild
-        Category category = event.getGuild().getCategoryById(categoryID); // gets the category
+        Category category = guild.getCategoryById(categoryID); // gets the category
+        String messageTitle = "";
+        String messageBody = "";
+        int problemNumber = Integer.parseInt(problem.replaceAll("[\\D]", ""));
+        String problemChar = problem.substring(problem.length()-1);
 
         String date = String.valueOf(java.time.LocalDate.now()); // get date
+        messageTitle += "**Daily Codeforces " + date.substring(5,7) + "/" + date.substring(8,10) + "/" + date.substring(2,4) + "**\n"; // set output title
         String channelTitle = date.substring(5,7) + "-" + date.substring(8,10) + "-" + // format into channel title
-                date.substring(2,4) + "-" + problemNumber;
+                date.substring(2,4) + "-" + problem;
 
-        category.createTextChannel(channelTitle).queue(); // create channel with the title
-        //embed.appendDescription();
+        AtomicReference<String> id = new AtomicReference<>("");
+        category.createTextChannel(channelTitle)
+                .queue(channel -> {
+                    id.set(channel.getId());
+                }); // create channel with the title
+
+        // Output formatting
+        if (difficulty > 0) {
+            // adds difficulty message if argument given
+            messageBody += "**(" + difficulty + ")** ";
+        }
+        messageBody += "**https://codeforces.com/problemset/problem/" + problemNumber + "/" + problemChar + "**";
+        while (id.toString() == "");
+        TextChannel textChannel = guild.getTextChannelById(id.toString());
+
+        EmbedBuilder embed = new EmbedBuilder();
+        embed.setColor(embedColor);
+        embed.setTitle("Assign Daily");
+        embed.appendDescription("**Task Complete**");
         event.replyEmbeds(embed.build()).queue();
+
+        EmbedBuilder messageEmbed = new EmbedBuilder();
+        messageEmbed.setColor(embedColor);
+        messageEmbed.setTitle(messageTitle);
+        messageEmbed.appendDescription(messageBody);
+
+        AtomicReference<Long> messageID = new AtomicReference<>(0L);
+        textChannel.sendMessageEmbeds(messageEmbed.build())
+                .queue((message) -> {
+                    long messageId = message.getIdLong();
+                    messageID.set(messageId);
+                });
+        while (messageID.get() == 0L);
+
+        System.out.println("c");
+        textChannel.retrieveMessageById(String.valueOf(messageID))
+                .queue((message) -> {
+                    message.createThreadChannel("Problem - " + problem.toUpperCase() + " - Codeforces Solution Thread").queue();
+                });
+        System.out.println("b");
     }
 
     public void cleardaily(SlashCommandInteractionEvent event) {
