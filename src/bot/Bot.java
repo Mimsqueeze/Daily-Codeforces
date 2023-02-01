@@ -15,15 +15,20 @@ import net.dv8tion.jda.api.sharding.DefaultShardManagerBuilder;
 
 import javax.security.auth.login.LoginException;
 
+import java.time.LocalDateTime;
+
 import java.awt.*;
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
 
 import static net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER;
+import static net.dv8tion.jda.api.interactions.commands.OptionType.STRING;
 
 public class Bot extends ListenerAdapter {
     private final Color embedColor = new Color(255,215,0);
+    private static long categoryID = -1;
 
     public static void main(String[] args) throws LoginException {
         // Local variable to store the token String
@@ -31,9 +36,10 @@ public class Bot extends ListenerAdapter {
 
         // Retrieve the token from the .env file
         try {
-            BufferedReader readToken = new BufferedReader(new FileReader("Token.env"));
-            token = readToken.readLine();
-            readToken.close();
+            BufferedReader scan = new BufferedReader(new FileReader("production.env"));
+            token = scan.readLine();
+            categoryID = Long.parseLong(scan.readLine());
+            scan.close();
         } catch (Exception e) {
             // Typically goes here if file is not found
             e.printStackTrace();
@@ -50,9 +56,11 @@ public class Bot extends ListenerAdapter {
         commands.addCommands(Commands.slash("help", "Returns a list of commands"));
         commands.addCommands(Commands.slash("github", "Displays the github link for the bot code"));
         commands.addCommands(Commands.slash("invite", "Shows the invite link to add the bot to your server"));
-        commands.addCommands(Commands.slash("assigndaily", "Assigns a daily problem under the Daily Problems category"));
-        commands.addCommands(Commands.slash("undo", "Undos a daily assignment problem"));
-        commands.addCommands(Commands.slash("cleardaily","Clears the daily problems by moving them to Archived Problems category"));
+        commands.addCommands(Commands.slash("assigndaily", "Assigns a daily problem under the Daily Problems category")
+                .addOptions(new OptionData(STRING, "problem", "enter the desired problem number and letter").setRequired(true))
+        );
+        commands.addCommands(Commands.slash("cleardaily", "Clears the daily problems by deleting them"));
+        commands.addCommands(Commands.slash("archivedaily","Clears the daily problems by moving them to Archived Problems category"));
         commands.queue();
     }
 
@@ -66,7 +74,11 @@ public class Bot extends ListenerAdapter {
             case "help" -> help(event);
             case "github" -> github(event);
             case "invite" -> invite(event);
-            case "assigndaily" -> assigndaily(event);
+            case "assigndaily" -> {
+                String problemNumber = event.getOption("problem").getAsString();
+                assigndaily(event, problemNumber);
+            }
+            case "archivedaily" -> archivedaily(event);
             case "cleardaily" -> cleardaily(event);
             // Command does not exist
             default -> event.reply("I can't handle that command right now :(").setEphemeral(true).queue();
@@ -100,18 +112,32 @@ public class Bot extends ListenerAdapter {
         event.replyEmbeds(embed.build()).queue();
     }
 
-    public void assigndaily(SlashCommandInteractionEvent event) {
+    public void assigndaily(SlashCommandInteractionEvent event, String problemNumber) {
         EmbedBuilder embed = new EmbedBuilder();
         embed.setTitle("Invite Link");
         embed.setColor(embedColor);
-        Guild guild = event.getGuild();
-        Category category = event.getGuild().getCategoryById("1067545814710358067");
-        category.createTextChannel("testttt").queue();
+        Guild guild = event.getGuild(); // gets the guild
+        Category category = event.getGuild().getCategoryById(categoryID); // gets the category
+
+        String date = String.valueOf(java.time.LocalDate.now()); // get date
+        String channelTitle = date.substring(5,7) + "-" + date.substring(8,10) + "-" + // format into channel title
+                date.substring(2,4) + "-" + problemNumber;
+
+        category.createTextChannel(channelTitle).queue(); // create channel with the title
         //embed.appendDescription();
         event.replyEmbeds(embed.build()).queue();
     }
 
     public void cleardaily(SlashCommandInteractionEvent event) {
+        EmbedBuilder embed = new EmbedBuilder();
+        embed.setTitle("Invite Link");
+        embed.setColor(embedColor);
+
+        //embed.appendDescription();
+        event.replyEmbeds(embed.build()).queue();
+    }
+
+    public void archivedaily(SlashCommandInteractionEvent event) {
         EmbedBuilder embed = new EmbedBuilder();
         embed.setTitle("Invite Link");
         embed.setColor(embedColor);
